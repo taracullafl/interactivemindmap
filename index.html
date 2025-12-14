@@ -3,87 +3,98 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Interactive Mind Map (D3) – Horizontal Labels</title>
+  <title>Interactive Mind Map (D3) – Horizontal Text</title>
   <style>
-    body {
-      margin: 0;
+    body{
+      margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: #0b0f17;
-      color: #e9eef7;
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: 24px;
+      background:#0b0f17;
+      color:#e9eef7;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
     }
-    .wrap { width: min(1100px, 96vw); }
-    header {
-      display: flex;
-      gap: 12px;
-      align-items: baseline;
-      justify-content: space-between;
-      margin: 12px 0 10px;
-      flex-wrap: wrap;
+    .wrap{ width:min(1200px, 96vw); }
+    header{
+      display:flex;
+      gap:12px;
+      align-items:baseline;
+      justify-content:space-between;
+      margin:12px 0 10px;
+      flex-wrap:wrap;
     }
-    header h1 {
-      font-size: 16px;
-      margin: 0;
-      font-weight: 650;
-      letter-spacing: 0.2px;
+    header h1{
+      font-size:16px;
+      margin:0;
+      font-weight:650;
+      letter-spacing:0.2px;
     }
-    header .hint {
-      font-size: 13px;
-      opacity: 0.85;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+    .hint{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      font-size:13px;
+      opacity:0.85;
     }
-    .badge {
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.04);
-      opacity: 0.9;
-      white-space: nowrap;
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.04);
+      white-space:nowrap;
     }
-    .card {
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.03);
-      border-radius: 14px;
-      padding: 12px;
-      overflow: hidden;
-      box-shadow: 0 18px 55px rgba(0,0,0,0.35);
-    }
-
-    svg { width: 100%; height: auto; display: block; }
-
-    .link {
-      fill: none;
-      stroke: rgba(255,255,255,0.22);
-      stroke-width: 1.4px;
+    .card{
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.03);
+      border-radius:14px;
+      padding:12px;
+      overflow:hidden;
+      box-shadow:0 18px 55px rgba(0,0,0,0.35);
     }
 
-    .node circle {
-      stroke: rgba(255,255,255,0.45);
-      stroke-width: 1px;
+    svg{ width:100%; height:auto; display:block; }
+
+    .link{
+      fill:none;
+      stroke:rgba(255,255,255,0.22);
+      stroke-width:1.6px;
     }
 
-    .node text {
-      font-size: 12px;
-      fill: rgba(255,255,255,0.92);
-      paint-order: stroke;
-      stroke: rgba(11,15,23,0.65);
-      stroke-width: 3px;
-      stroke-linejoin: round;
-      pointer-events: none;
+    .node circle{
+      stroke:rgba(255,255,255,0.45);
+      stroke-width:1px;
     }
 
-    .node[tabindex="0"]:focus circle {
-      stroke: #ffffff;
-      stroke-width: 2px;
+    .node text{
+      font-size:12.5px;
+      fill:rgba(255,255,255,0.92);
+      paint-order:stroke;
+      stroke:rgba(11,15,23,0.65);
+      stroke-width:3px;
+      stroke-linejoin:round;
+      pointer-events:none;
+    }
+
+    .node[tabindex="0"]:focus circle{
+      stroke:#ffffff;
+      stroke-width:2px;
       filter: drop-shadow(0 0 8px rgba(255,255,255,0.25));
-      outline: none;
+      outline:none;
+    }
+
+    .srOnly{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
     }
   </style>
 </head>
@@ -95,217 +106,117 @@
       <div class="hint">
         <span class="badge">Click a node to expand or collapse</span>
         <span class="badge">Keyboard: Tab then Enter or Space</span>
+        <span class="badge">Drag to pan, pinch or scroll to zoom</span>
       </div>
     </header>
 
     <div class="card">
-      <svg id="viz" viewBox="-550 -420 1100 840" role="img" aria-label="Interactive mind map"></svg>
+      <div class="srOnly" id="live" aria-live="polite"></div>
+      <!-- viewBox is set by JS so it can be responsive -->
+      <svg id="viz" role="img" aria-label="Interactive mind map with collapsible topics"></svg>
     </div>
   </div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script>
+    // ---- Data (3 topics with placeholder text) ----
     const data = {
       name: "Mind Map",
       children: [
         {
           name: "Topic 1: Placeholder",
           children: [
-            { name: "Idea 1.1", children: [
-              { name: "Detail 1.1.1" },
-              { name: "Detail 1.1.2" }
-            ]},
-            { name: "Idea 1.2", children: [
-              { name: "Detail 1.2.1" },
-              { name: "Detail 1.2.2" }
-            ]}
+            { name: "Idea 1.1", children: [{ name: "Detail 1.1.1" }, { name: "Detail 1.1.2" }] },
+            { name: "Idea 1.2", children: [{ name: "Detail 1.2.1" }, { name: "Detail 1.2.2" }] }
           ]
         },
         {
           name: "Topic 2: Placeholder",
           children: [
-            { name: "Idea 2.1", children: [
-              { name: "Detail 2.1.1" },
-              { name: "Detail 2.1.2" }
-            ]},
-            { name: "Idea 2.2", children: [
-              { name: "Detail 2.2.1" },
-              { name: "Detail 2.2.2" }
-            ]}
+            { name: "Idea 2.1", children: [{ name: "Detail 2.1.1" }, { name: "Detail 2.1.2" }] },
+            { name: "Idea 2.2", children: [{ name: "Detail 2.2.1" }, { name: "Detail 2.2.2" }] }
           ]
         },
         {
           name: "Topic 3: Placeholder",
           children: [
-            { name: "Idea 3.1", children: [
-              { name: "Detail 3.1.1" },
-              { name: "Detail 3.1.2" }
-            ]},
-            { name: "Idea 3.2", children: [
-              { name: "Detail 3.2.1" },
-              { name: "Detail 3.2.2" }
-            ]}
+            { name: "Idea 3.1", children: [{ name: "Detail 3.1.1" }, { name: "Detail 3.1.2" }] },
+            { name: "Idea 3.2", children: [{ name: "Detail 3.2.1" }, { name: "Detail 3.2.2" }] }
           ]
         }
       ]
     };
 
+    const live = document.getElementById("live");
+
+    // ---- SVG setup ----
     const svg = d3.select("#viz");
-    const g = svg.append("g");
 
-    const radius = 330;
+    // Responsive canvas size
+    const WIDTH = 1120;
+    const HEIGHT = 720;
+    svg.attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-    const tree = d3.tree()
-      .size([2 * Math.PI, radius])
-      .separation((a, b) => (a.parent === b.parent ? 1 : 1.6) / a.depth);
+    // A zoomable/pannable layer
+    const zoomLayer = svg.append("g");
+    const gLinks = zoomLayer.append("g");
+    const gNodes = zoomLayer.append("g");
 
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.6, 2.2])
+        .on("zoom", (event) => zoomLayer.attr("transform", event.transform))
+    );
+
+    // ---- Tree layout (left-to-right) ----
     const root = d3.hierarchy(data);
+    root.x0 = HEIGHT / 2;
+    root.y0 = 80;
 
-    // Start with topics collapsed, but keep root open
+    // Collapse everything under the 3 topics initially (root open, topics closed)
     if (root.children) root.children.forEach(collapse);
 
-    function collapse(node) {
-      if (node.children) {
+    function collapse(node){
+      if(node.children){
         node._children = node.children;
         node._children.forEach(collapse);
         node.children = null;
       }
     }
 
-    root.x0 = 0;
-    root.y0 = 0;
+    const duration = 280;
 
-    const duration = 350;
-
-    function nodeFill(d) {
-      if (d.depth === 0) return "#ffbf3a";
-      if (d._children || d.children) return "#3dd6d0";
-      return "#ff6fae";
+    function nodeFill(d){
+      if(d.depth === 0) return "#ffbf3a";     // root
+      if(d._children) return "#3dd6d0";       // collapsed parent
+      if(d.children) return "#3dd6d0";        // expanded parent
+      return "#ff6fae";                       // leaf
     }
 
-    function nodeRadius(d) {
-      if (d.depth === 0) return 10;
-      if (d.depth === 1) return 8;
-      if (d.depth === 2) return 6.5;
+    function nodeRadius(d){
+      if(d.depth === 0) return 10;
+      if(d.depth === 1) return 8;
+      if(d.depth === 2) return 6.5;
       return 5.5;
     }
 
-    function update(source) {
+    function update(source){
+      const dx = 34;           // vertical spacing between nodes
+      const dy = 220;          // horizontal spacing by depth
+      const tree = d3.tree().nodeSize([dx, dy]);
+
       tree(root);
 
       const nodes = root.descendants();
       const links = root.links();
 
-      // Convert polar coords (angle, radius) to cartesian (x,y)
+      // Center vertically
+      const xExtent = d3.extent(nodes, d => d.x);
+      const xMid = (xExtent[0] + xExtent[1]) / 2;
+
       nodes.forEach(d => {
-        const angle = d.x - Math.PI / 2;
-        d.xp = Math.cos(angle) * d.y;
-        d.yp = Math.sin(angle) * d.y;
+        d.x = d.x - xMid + (HEIGHT / 2);
+        d.y = d.y + 80;
       });
 
-      // LINKS
-      const link = g.selectAll("path.link")
-        .data(links, d => d.target.data.name);
-
-      link.enter()
-        .append("path")
-        .attr("class", "link")
-        .attr("d", () => {
-          const o = { x: source.x0 ?? 0, y: source.y0 ?? 0 };
-          return `M${o.x},${o.y}L${o.x},${o.y}`;
-        })
-        .merge(link)
-        .transition()
-        .duration(duration)
-        .attr("d", d => {
-          const sAngle = d.source.x - Math.PI / 2;
-          const tAngle = d.target.x - Math.PI / 2;
-
-          const sx = Math.cos(sAngle) * d.source.y;
-          const sy = Math.sin(sAngle) * d.source.y;
-
-          const tx = Math.cos(tAngle) * d.target.y;
-          const ty = Math.sin(tAngle) * d.target.y;
-
-          // gentle curved link
-          const mx = (sx + tx) / 2;
-          const my = (sy + ty) / 2;
-
-          return `M${sx},${sy} Q${mx},${my} ${tx},${ty}`;
-        });
-
-      link.exit()
-        .transition()
-        .duration(duration)
-        .attr("opacity", 0)
-        .remove();
-
-      // NODES
-      const node = g.selectAll("g.node")
-        .data(nodes, d => d.data.name);
-
-      const nodeEnter = node.enter()
-        .append("g")
-        .attr("class", "node")
-        .attr("tabindex", 0)
-        .attr("role", "button")
-        .attr("aria-label", d => `${d.data.name}. Activate to expand or collapse.`)
-        .attr("transform", `translate(${source.x0 ?? 0},${source.y0 ?? 0})`)
-        .on("click", (event, d) => toggle(d))
-        .on("keydown", (event, d) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            toggle(d);
-          }
-        });
-
-      nodeEnter.append("circle")
-        .attr("r", 0)
-        .attr("fill", d => nodeFill(d));
-
-      // IMPORTANT: Horizontal labels (no rotation)
-      nodeEnter.append("text")
-        .attr("dy", "0.32em")
-        .attr("x", d => (d.x < Math.PI ? 12 : -12))
-        .attr("text-anchor", d => (d.x < Math.PI ? "start" : "end"))
-        .text(d => d.data.name);
-
-      nodeEnter.merge(node)
-        .transition()
-        .duration(duration)
-        .attr("transform", d => `translate(${d.xp},${d.yp})`);
-
-      nodeEnter.merge(node).select("circle")
-        .transition()
-        .duration(duration)
-        .attr("r", d => nodeRadius(d))
-        .attr("fill", d => nodeFill(d));
-
-      node.exit()
-        .transition()
-        .duration(duration)
-        .attr("opacity", 0)
-        .remove();
-
-      // Save current position for smoother future transitions
-      nodes.forEach(d => {
-        d.x0 = d.xp;
-        d.y0 = d.yp;
-      });
-    }
-
-    function toggle(d) {
-      if (d.children) {
-        d._children = d.children;
-        d.children = null;
-      } else if (d._children) {
-        d.children = d._children;
-        d._children = null;
-      }
-      update(d);
-    }
-
-    update(root);
-  </script>
-</body>
-</html>
+      // ---- LIN
