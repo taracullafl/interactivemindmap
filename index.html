@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Interactive Mind Map (D3)</title>
+  <title>Interactive Mind Map (D3) – Horizontal Labels</title>
   <style>
     body {
       margin: 0;
@@ -12,17 +12,17 @@
       color: #e9eef7;
       display: grid;
       place-items: center;
-      height: 100vh;
+      min-height: 100vh;
+      padding: 24px;
     }
-    .wrap {
-      width: min(1100px, 96vw);
-    }
+    .wrap { width: min(1100px, 96vw); }
     header {
       display: flex;
       gap: 12px;
       align-items: baseline;
       justify-content: space-between;
       margin: 12px 0 10px;
+      flex-wrap: wrap;
     }
     header h1 {
       font-size: 16px;
@@ -33,6 +33,19 @@
     header .hint {
       font-size: 13px;
       opacity: 0.85;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .badge {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      opacity: 0.9;
+      white-space: nowrap;
     }
     .card {
       border: 1px solid rgba(255,255,255,0.10);
@@ -40,6 +53,7 @@
       border-radius: 14px;
       padding: 12px;
       overflow: hidden;
+      box-shadow: 0 18px 55px rgba(0,0,0,0.35);
     }
 
     svg { width: 100%; height: auto; display: block; }
@@ -71,18 +85,9 @@
       filter: drop-shadow(0 0 8px rgba(255,255,255,0.25));
       outline: none;
     }
-
-    .badge {
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.04);
-      opacity: 0.9;
-      white-space: nowrap;
-    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <header>
@@ -149,6 +154,7 @@
     const g = svg.append("g");
 
     const radius = 330;
+
     const tree = d3.tree()
       .size([2 * Math.PI, radius])
       .separation((a, b) => (a.parent === b.parent ? 1 : 1.6) / a.depth);
@@ -156,7 +162,7 @@
     const root = d3.hierarchy(data);
 
     // Start with topics collapsed, but keep root open
-    root.children.forEach(collapse);
+    if (root.children) root.children.forEach(collapse);
 
     function collapse(node) {
       if (node.children) {
@@ -171,15 +177,9 @@
 
     const duration = 350;
 
-    function radialPoint(x, y) {
-      const angle = x - Math.PI / 2;
-      return [Math.cos(angle) * y, Math.sin(angle) * y];
-    }
-
     function nodeFill(d) {
       if (d.depth === 0) return "#ffbf3a";
-      if (d._children) return "#3dd6d0";
-      if (d.children) return "#3dd6d0";
+      if (d._children || d.children) return "#3dd6d0";
       return "#ff6fae";
     }
 
@@ -196,31 +196,43 @@
       const nodes = root.descendants();
       const links = root.links();
 
+      // Convert polar coords (angle, radius) to cartesian (x,y)
       nodes.forEach(d => {
-        const [x, y] = radialPoint(d.x, d.y);
-        d.xp = x;
-        d.yp = y;
+        const angle = d.x - Math.PI / 2;
+        d.xp = Math.cos(angle) * d.y;
+        d.yp = Math.sin(angle) * d.y;
       });
 
+      // LINKS
       const link = g.selectAll("path.link")
         .data(links, d => d.target.data.name);
 
       link.enter()
         .append("path")
         .attr("class", "link")
-        .attr("d", d => {
-          const o = { xp: source.xp ?? 0, yp: source.yp ?? 0 };
-          return d3.linkRadial()
-            .angle(() => 0)
-            .radius(() => 0)({ source: o, target: o });
+        .attr("d", () => {
+          const o = { x: source.x0 ?? 0, y: source.y0 ?? 0 };
+          return `M${o.x},${o.y}L${o.x},${o.y}`;
         })
         .merge(link)
         .transition()
         .duration(duration)
-        .attr("d", d3.linkRadial()
-          .angle(d => d.x)
-          .radius(d => d.y)
-        );
+        .attr("d", d => {
+          const sAngle = d.source.x - Math.PI / 2;
+          const tAngle = d.target.x - Math.PI / 2;
+
+          const sx = Math.cos(sAngle) * d.source.y;
+          const sy = Math.sin(sAngle) * d.source.y;
+
+          const tx = Math.cos(tAngle) * d.target.y;
+          const ty = Math.sin(tAngle) * d.target.y;
+
+          // gentle curved link
+          const mx = (sx + tx) / 2;
+          const my = (sy + ty) / 2;
+
+          return `M${sx},${sy} Q${mx},${my} ${tx},${ty}`;
+        });
 
       link.exit()
         .transition()
@@ -228,6 +240,7 @@
         .attr("opacity", 0)
         .remove();
 
+      // NODES
       const node = g.selectAll("g.node")
         .data(nodes, d => d.data.name);
 
@@ -237,7 +250,7 @@
         .attr("tabindex", 0)
         .attr("role", "button")
         .attr("aria-label", d => `${d.data.name}. Activate to expand or collapse.`)
-        .attr("transform", () => `translate(${source.xp ?? 0},${source.yp ?? 0})`)
+        .attr("transform", `translate(${source.x0 ?? 0},${source.y0 ?? 0})`)
         .on("click", (event, d) => toggle(d))
         .on("keydown", (event, d) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -250,11 +263,11 @@
         .attr("r", 0)
         .attr("fill", d => nodeFill(d));
 
+      // IMPORTANT: Horizontal labels (no rotation)
       nodeEnter.append("text")
         .attr("dy", "0.32em")
         .attr("x", d => (d.x < Math.PI ? 12 : -12))
         .attr("text-anchor", d => (d.x < Math.PI ? "start" : "end"))
-        .attr("transform", d => `rotate(${(d.x * 180 / Math.PI) - 90})`)
         .text(d => d.data.name);
 
       nodeEnter.merge(node)
@@ -273,6 +286,12 @@
         .duration(duration)
         .attr("opacity", 0)
         .remove();
+
+      // Save current position for smoother future transitions
+      nodes.forEach(d => {
+        d.x0 = d.xp;
+        d.y0 = d.yp;
+      });
     }
 
     function toggle(d) {
